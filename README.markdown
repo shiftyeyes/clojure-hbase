@@ -63,7 +63,7 @@ the code. This can be manually managed with the `table` and `release-table`
 functions. Perhaps a better way to write the above code would have been:
 
       (hb/with-table [users (hb/table "test-users")]
-         (hb/put users "testrow" :values [:account [:c1 "test" :c2 "test2"]])
+         (hb/put users "testrow" :values [:account [:c1 "test" :c2 {12345 "test2"}]])
          (hb/get users "testrow" :columns [:account [:c1 :c2]])
          (hb/delete users "testrow" :columns [:account [:c1 :c2]])
          (hb/get users "testrow" :columns [:account [:c1 :c2]]))

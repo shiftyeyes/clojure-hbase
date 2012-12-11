@@ -377,7 +377,10 @@
 
 (defn- put-add
   [#^Put put-op family qualifier value]
-  (.add put-op (to-bytes family) (to-bytes qualifier) (to-bytes value)))
+  (if (map? value)
+    (doseq [[k v] value] 
+      (.add put-op (to-bytes family) (to-bytes qualifier) k (to-bytes v)))
+    (.add put-op (to-bytes family) (to-bytes qualifier) (to-bytes value))))
 
 (defn- handle-put-values
   [#^Put put-op values]

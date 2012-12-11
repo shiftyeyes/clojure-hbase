@@ -18,8 +18,16 @@
 
 (defn test-vector
   [result]
-  (as-vector result :map-family keywordize :map-qualifier keywordize
-             :map-timestamp (fn [x] nil) :map-value keywordize))
+  (as-vector result :map-family keywordize :map-qualifier keywordize :map-value keywordize))
+
+(defn rows-equal
+  "Tests for equality amongst two row vectors, ignoring timestamp if it is expected to be nil."
+  [expected actual] ; expects vectors of vectors, such as what is returned by test-vector
+  (and (= (count expected) (count actual))
+       (= expected (map #(if (nil? (nth %1 2))
+                           (assoc %2 2 nil)
+                           %2)
+                        expected actual))))
 
 (defn test-map
   [result]
@@ -80,22 +88,22 @@
      (enable-table test-tbl-name)
      (with-table [test-tbl (table test-tbl-name)]
        (put test-tbl row :value [cf-name :testqual :testval])
-       (is (= rowvalue
+       (is (rows-equal rowvalue
               (test-vector
                (get test-tbl row :column
                     [cf-name :testqual])))
            "Successfully executed Put :value and Get :column.")
-       (is (= rowvalue
+       (is (rows-equal rowvalue
               (test-vector
                (get test-tbl row :family :test-cf-name)))
            "Successfully executed Get :family.")
        (let [timestamp (-> (get test-tbl row :column
                                 [cf-name :testqual])
                            (as-vector) (first) (nth 2))]
-         (is (= rowvalue (test-vector (get test-tbl row
+         (is (rows-equal rowvalue (test-vector (get test-tbl row
                                            :time-stamp timestamp)))
              "Sucessfully executed Get :time-stamp")
-         (is (= rowvalue (test-vector
+         (is (rows-equal rowvalue (test-vector
                           (get test-tbl row
                                :time-range [(dec timestamp) (inc timestamp)])))
              "Successfully executed Get :time-range"))
@@ -107,7 +115,7 @@
 
 (deftest multicol-get-put-delete
   (let [row "testrow"
-        rowvalue [[:test-cf-name1 :test1qual1 nil :testval1]
+        rowvalue [[:test-cf-name1 :test1qual1 111 :testval1]
                   [:test-cf-name1 :test1qual2 nil :testval2]
                   [:test-cf-name2 :test2qual1 nil :testval3]
                   [:test-cf-name2 :test2qual2 nil :testval4]]
@@ -119,22 +127,22 @@
      (add-column-family test-tbl-name (column-descriptor "test-cf-name2"))
      (enable-table test-tbl-name)
      (with-table [test-tbl (table test-tbl-name)]
-       (put test-tbl row :values [:test-cf-name1 [:test1qual1 "testval1"
+       (put test-tbl row :values [:test-cf-name1 [:test1qual1 {111 "testval1"}
                                                   :test1qual2 "testval2"]
                                   :test-cf-name2 [:test2qual1 "testval3"
                                                   :test2qual2 "testval4"]])
-       (is (= rowvalue (test-vector (get test-tbl row)))
+       (is (rows-equal rowvalue (test-vector (get test-tbl row)))
            "Verified all columns were Put with an unqualified row Get.")
-       (is (= subvalue
+       (is (rows-equal subvalue
               (test-vector (get test-tbl row :columns
                                 [:test-cf-name1 [:test1qual1 :test1qual2]])))
            "Successfully did a Get on subset of columns in row using :columns.")
-       (is (= subvalue (test-vector (get test-tbl row
+       (is (rows-equal subvalue (test-vector (get test-tbl row
                                          :families [:test-cf-name1])))
            "Successfully executed Get on subset of columns by :families.")
        (delete test-tbl row :columns [:test-cf-name1 [:test1qual1]
                                       :test-cf-name2 [:test2qual1]])
-       (is (= [[:test-cf-name1 :test1qual2 nil :testval2]
+       (is (rows-equal [[:test-cf-name1 :test1qual2 nil :testval2]
                [:test-cf-name2 :test2qual2 nil :testval4]]
               (test-vector (get test-tbl row :columns
                                 [:test-cf-name1 [:test1qual1 :test1qual2]
